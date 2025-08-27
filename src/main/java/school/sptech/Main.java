@@ -8,7 +8,7 @@ import java.util.Scanner;
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 public class Main {
     public static void main(String[] args) throws InterruptedException {
-        String caminho = "C:/LP/Logs-PI/src/main/csv";
+        String caminho = "C:/sistema-de-logs";
 
         Random aleatorio = new Random();
 
