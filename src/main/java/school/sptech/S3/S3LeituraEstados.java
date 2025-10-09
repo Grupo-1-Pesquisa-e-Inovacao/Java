@@ -9,12 +9,12 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
-import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDate;
 import java.util.*;
 
 public class S3LeituraEstados {
@@ -36,11 +36,13 @@ public class S3LeituraEstados {
                 .build()) {
 
             List<String> estados = processarArquivoEstados(s3Client);
-
+            logger.info("Processou estado");
             Map<String, String> idUf = processarArquivoRelatorio(s3Client, estados);
-
+            logger.info("Processou relatório");
             inserirDadosNoBanco(s3Client, idUf);
-            
+            logger.info("Processou no banco");
+            logger.info("--------------------- FIM PROCESSAMENTO ---------------------");
+
         } catch (S3Exception e) {
             logger.error("Erro ao acessar o S3: {}", e.getMessage(), e);
             throw new RuntimeException("Falha ao processar arquivos do S3", e);
@@ -72,7 +74,7 @@ public class S3LeituraEstados {
              Workbook workbook = new XSSFWorkbook(inputStream)) {
             
             Sheet sheet = workbook.getSheetAt(0);
-            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+            for (int i = 7; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row != null && row.getCell(0) != null && row.getCell(1) != null) {
                     String uf = row.getCell(1).getStringCellValue();
@@ -91,20 +93,36 @@ public class S3LeituraEstados {
             
             Sheet sheet = workbook.getSheetAt(0);
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                LocalDate dataAcao = LocalDate.now();
                 Row row = sheet.getRow(i);
                 if (row == null) continue;
 
                 try {
-                    jdbcTemplate.update(
-                        "INSERT INTO estado (idUF, nomeUf, posicaoIDHM, idhm, posicaoIDHM_educacao, idhmEducacao) VALUES (?, ?, ?, ?, ?, ?)",
-                        idUf.get(String.valueOf(i)),
-                        row.getCell(0).getStringCellValue(),
-                        row.getCell(1).getNumericCellValue(),
-                        row.getCell(2).getNumericCellValue(),
-                        row.getCell(5).getNumericCellValue(),
-                        row.getCell(6).getNumericCellValue()
-                    );
+                    String estadoNome = row.getCell(0).getStringCellValue();
+                    String estadoId = null;
+                    for (Map.Entry<String, String> entry : idUf.entrySet()) {
+                        if (entry.getValue().equals(estadoNome)) {
+                            estadoId = entry.getKey();
+                            break;
+                        }
+                    }
+                    if (estadoId != null) {
+                        jdbcTemplate.update(
+                            "INSERT INTO estado (idUF, nomeUf, posicaoIDHM, idhm, posicaoIDHM_educacao, idhmEducacao) VALUES (?, ?, ?, ?, ?, ?)",
+                            Integer.parseInt(estadoId),
+                            estadoNome,
+                            row.getCell(1).getNumericCellValue(),
+                            row.getCell(2).getNumericCellValue(),
+                            row.getCell(5).getNumericCellValue(),
+                            row.getCell(6).getNumericCellValue()
+                        );
+                        jdbcTemplate.update("INSERT INTO auditoria (tipo_acao, data_acao, status_acao) VALUES (?, ?, ?)", "INSERT", dataAcao, "Sucesso");
+                        logger.info("Inserido estado: {} com ID: {}", estadoNome, estadoId);
+                    } else {
+                        logger.warn("ID não encontrado para o estado: {}", estadoNome);
+                    }
                 } catch (Exception e) {
+                    jdbcTemplate.update("INSERT INTO auditoria (tipo_acao, data_acao, status_acao) VALUES (?, ?, ?)", "INSERT", dataAcao, "Falha");
                     logger.error("Erro ao inserir linha {}: {}", i, e.getMessage(), e);
                 }
             }
