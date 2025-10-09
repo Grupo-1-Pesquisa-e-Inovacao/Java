@@ -61,15 +61,6 @@ public class S3LeituraMunicipios {
     public S3LeituraMunicipios(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
-
-    /**
-     * Normalizes municipality names to handle variations between files
-     * - Removes accents and diacritical marks
-     * - Replaces hyphens with spaces (Grão-Pará -> Grao Para)
-     * - Normalizes apostrophes and quotes
-     * - Removes extra whitespace
-     * - Converts to lowercase for consistent matching
-     */
     private String normalizarNomeMunicipio(String nome) {
         if (nome == null) {
             return "";
@@ -78,12 +69,12 @@ public class S3LeituraMunicipios {
         String normalized = java.text.Normalizer.normalize(nome, java.text.Normalizer.Form.NFD)
             .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
         return normalized
-            .replace("-", " ")        // Replace hyphens with spaces
-            .replace("'", "")         // Remove single quotes
-            .replace("\"", "")        // Remove double quotes
-            .replace("º", "")         // Remove ordinal indicators
-            .replace("°", "")          // Remove degree symbols
-            .replaceAll("\\s+", " ")  // Normalize multiple spaces to single space
+            .replace("-", " ")
+            .replace("'", "")
+            .replace("\"", "")
+            .replace("º", "")
+            .replace("°", "")
+            .replaceAll("\\s+", " ")
             .toLowerCase()
             .trim();
     }
