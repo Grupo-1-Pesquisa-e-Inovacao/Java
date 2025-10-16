@@ -7,6 +7,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
+import school.sptech.Auditoria;
+import school.sptech.JDBC.ConexaoBanco;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -18,15 +20,17 @@ import java.io.InputStream;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class S3LeituraMunicipios {
+
+    ConexaoBanco conexao = new ConexaoBanco();
     private static final Logger logger = LoggerFactory.getLogger(S3LeituraMunicipios.class);
     private final JdbcTemplate jdbcTemplate;
     private final String bucket = "s3-java-excel";
     private final String key = "IDHM_Municipios.xlsx";
     private final String keyRelatorio = "RELATORIO_DTB_BRASIL_2024_MUNICIPIOS.xlsx";
     private final Region region = Region.US_EAST_1;
+    private final Auditoria auditoria = new Auditoria(conexao.getJdbcTemplate());
 
     private static final Map<String, String> UF_NOME_TO_SIGLA = new HashMap<>() {{
         put("Rondônia", "RO");
@@ -61,22 +65,23 @@ public class S3LeituraMunicipios {
     public S3LeituraMunicipios(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
+
     private String normalizarNomeMunicipio(String nome) {
         if (nome == null) {
             return "";
         }
 
         String normalized = java.text.Normalizer.normalize(nome, java.text.Normalizer.Form.NFD)
-            .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
         return normalized
-            .replace("-", " ")
-            .replace("'", "")
-            .replace("\"", "")
-            .replace("º", "")
-            .replace("°", "")
-            .replaceAll("\\s+", " ")
-            .toLowerCase()
-            .trim();
+                .replace("-", " ")
+                .replace("'", "")
+                .replace("\"", "")
+                .replace("º", "")
+                .replace("°", "")
+                .replaceAll("\\s+", " ")
+                .toLowerCase()
+                .trim();
     }
 
     public void processarArquivos() {
@@ -93,7 +98,6 @@ public class S3LeituraMunicipios {
             logger.info("Processou relatório IdUf: " + idUf.size());
             inserirDadosNoBanco(s3Client, idMunicipio, idUf, municipiosComUf);
             logger.info("Processou no banco");
-
             logger.info("--------------------- FIM PROCESSAMENTO ---------------------");
 
         } catch (S3Exception e) {
@@ -109,7 +113,6 @@ public class S3LeituraMunicipios {
         Map<String, String> municipioComUf = new HashMap<>();
         try (InputStream inputStream = getS3Object(s3Client, key);
              Workbook workbook = new XSSFWorkbook(inputStream)) {
-            jdbcTemplate.update("DELETE from municipio where idMunicipio > 1");
             Sheet sheet = workbook.getSheetAt(0);
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
@@ -127,7 +130,6 @@ public class S3LeituraMunicipios {
 
     private Map<String, String> processarArquivoRelatorio(S3Client s3Client, Map<String, String> municipiosComUf) throws IOException {
         Map<String, String> chaveMunicipioId = new HashMap<>();
-        int naoEncontrados = 0;
         try (InputStream inputStream = getS3Object(s3Client, keyRelatorio);
              Workbook workbook = new XSSFWorkbook(inputStream)) {
 
@@ -192,34 +194,35 @@ public class S3LeituraMunicipios {
                     String municipioNome = municipioNomeCompleto.replaceAll("\\s*\\([A-Z]{2}\\)$", "").trim();
                     String ufSigla = municipioNomeCompleto.replaceAll(".*\\(([A-Z]{2})\\)$", "$1").trim();
                     String chave = normalizarNomeMunicipio(municipioNome) + "|" + ufSigla;
-
                     String municipioId = chaveMunicipioId.get(chave);
                     String ufCode = chaveUfCode.get(chave);
 
-                    if (municipioId != null && ufCode != null) {
-                        jdbcTemplate.update(
-                                "INSERT INTO municipio (idMunicipio, idEstado, nome_municipio, posicaoIDHM, IDHM, posicaoIDHM_educacao, idhmEducacao)" +
-                                        " VALUES (?, ?, ?, ?, ?, ?, ?)",
-                                Integer.parseInt(municipioId), // idMunicipio
-                                Integer.parseInt(ufCode),      // idUf
-                                municipioNomeCompleto,  // nome_municipio
-                                (int) row.getCell(1).getNumericCellValue(),  // posicaoIDHM
-                                row.getCell(2).getNumericCellValue(),  // IDHM
-                                (int) row.getCell(5).getNumericCellValue(),  // posicaoIDHM_educacao
-                                row.getCell(6).getNumericCellValue());   // idhmEducacao
-
-                        // auditoria
-
-                        jdbcTemplate.update("INSERT INTO auditoria (tipo_acao, data_acao, status_acao) VALUES (?, ?, ?)", "INSERT", dataAcao, "Sucesso");
-                        logger.info("Inserido município: {} com ID: {} e UF: {}", municipioNomeCompleto, municipioId, ufCode);
-                        inseridos++;
-                    } else {
-                        erros++;
-                        jdbcTemplate.update("INSERT INTO auditoria (tipo_acao, data_acao, status_acao) VALUES (?, ?, ?)", "INSERT", dataAcao, "Falha");
-                        logger.warn("ID ou UF não encontrado para o município: {} (Chave: {}, ID: {}, UF: {})", municipioNomeCompleto, chave, municipioId, ufCode);
+                    if (jdbcTemplate.queryForObject("SELECT COUNT(*) from municipio WHERE idMunicipio = ?", Integer.class, Integer.parseInt(municipioId)) == 0) {
+                        if (municipioId != null && ufCode != null) {
+                            jdbcTemplate.update(
+                                    "INSERT INTO municipio (idMunicipio, idEstado, nome_municipio, posicaoIDHM, IDHM, posicaoIDHM_educacao, idhmEducacao)" +
+                                            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                    Integer.parseInt(municipioId), // idMunicipio
+                                    Integer.parseInt(ufCode),      // idUf
+                                    municipioNomeCompleto,  // nome_municipio
+                                    (int) row.getCell(1).getNumericCellValue(),  // posicaoIDHM
+                                    row.getCell(2).getNumericCellValue(),  // IDHM
+                                    (int) row.getCell(5).getNumericCellValue(),  // posicaoIDHM_educacao
+                                    row.getCell(6).getNumericCellValue());   // idhmEducacao
+                            // auditoria
+                            logger.info("Inserido município: {} com ID: {} e UF: {}", municipioNomeCompleto, municipioId, ufCode);
+                            inseridos++;
+                        } else {
+                            erros++;
+                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i);
+                            logger.warn("ID ou UF não encontrado para o município: {} (Chave: {}, ID: {}, UF: {})", municipioNomeCompleto, chave, municipioId, ufCode);
+                        }
+                    } else{
+                        logger.warn("ID já existe no banco de dados: {}", municipioId);
                     }
                 } catch (Exception e) {
                     erros++;
+                    auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i);
                     logger.error("Erro ao inserir linha {}: {}", i, e.getMessage(), e);
                 }
             }

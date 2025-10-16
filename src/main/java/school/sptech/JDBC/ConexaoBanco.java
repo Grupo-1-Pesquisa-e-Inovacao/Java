@@ -13,7 +13,7 @@ public class ConexaoBanco {
         basicDataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
         basicDataSource.setUrl("jdbc:mysql://localhost:3306/GeoEduca?useSSL=false&serverTimezone=UTC");
         basicDataSource.setUsername("root");
-        basicDataSource.setPassword("Math2104.");
+        basicDataSource.setPassword("urubu100");
         
         this.basicDataSource = basicDataSource;
         this.jdbcTemplate = new JdbcTemplate(basicDataSource);
