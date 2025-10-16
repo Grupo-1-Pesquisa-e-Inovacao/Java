@@ -10,10 +10,11 @@ public class ConexaoBanco {
 
     public ConexaoBanco() {
         BasicDataSource basicDataSource = new BasicDataSource();
-        basicDataSource.setUrl("jdbc:h2:mem:db_musica");
-        basicDataSource.setUsername("sa");
-        basicDataSource.setPassword("");
-
+        basicDataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        basicDataSource.setUrl("jdbc:mysql://localhost:3306/GeoEduca?useSSL=false&serverTimezone=UTC");
+        basicDataSource.setUsername("root");
+        basicDataSource.setPassword("urubu100");
+        
         this.basicDataSource = basicDataSource;
         this.jdbcTemplate = new JdbcTemplate(basicDataSource);
     }
