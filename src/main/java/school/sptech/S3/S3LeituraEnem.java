@@ -1,4 +1,141 @@
 package school.sptech.S3;
 
+import com.opencsv.CSVReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
+import school.sptech.Auditoria;
+import school.sptech.JDBC.ConexaoBanco;
+import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
+import software.amazon.awssdk.services.s3.model.S3Object;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
+
 public class S3LeituraEnem {
+    private final JdbcTemplate jdbcTemplate;
+
+    public S3LeituraEnem(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    ConexaoBanco conexao = new ConexaoBanco();
+    private static final Logger logger = LoggerFactory.getLogger(S3LeituraEnem.class);
+    private final String bucket = "s3-java-excel";
+    private final String pasta = "planilhas_enem/";
+    private final Region region = Region.US_EAST_1;
+    private final Auditoria auditoria = new Auditoria(conexao.getJdbcTemplate());
+
+    public void leituraArquivos() {
+        try (S3Client s3Client = S3Client.builder()
+                .region(region)
+                .credentialsProvider(ProfileCredentialsProvider.create())
+                .build()) {
+            ListObjectsRequest listObjects = ListObjectsRequest.builder()
+                    .bucket(bucket)
+                    .build();
+            List<S3Object> objects = s3Client.listObjects(listObjects).contents();
+            for (S3Object object : objects) {
+                if (object.key().contains(pasta) && !object.key().equals(pasta)) {
+                    if (jdbcTemplate.queryForObject("SELECT COUNT(*) from processamento_planilha WHERE nome_arquivo = ?", Integer.class, object.key()) == 0) {
+                        try {
+                            processarArquivo(s3Client, object.key());
+                        } catch (IOException e) {
+                            logger.error("Erro ao processar o arquivo {}: {}", object.key(), e.getMessage());
+                        }
+                    } else {
+                        logger.warn("Arquivo já processado: {}", object.key());
+                    }
+                }
+            }
+        }
+    }
+
+    public void processarArquivo(S3Client s3Client, String objectKey) throws IOException {
+        logger.info("Processando arquivo: {}", objectKey);
+        auditoria.auditoriaInsertProcessamento(objectKey, LocalDate.now(), 0, "Processando");
+
+        int count = 0;
+        int totalInserido = 0;
+
+        try (InputStream inputStream = getS3Object(s3Client, objectKey);
+             InputStreamReader isr = new InputStreamReader(inputStream);
+             CSVReader csvReader = new CSVReader(isr);
+             Connection conn = new ConexaoBanco().getBasicDataSource().getConnection()) {
+            conn.setAutoCommit(false);
+            String sql = "INSERT INTO media_aluno_enem (idEstado, idMunicipio, inscricao_enem, nota_candidato) VALUES (?, ?, ?, ?)";
+            Set<String> idMunicipiosValidos = new HashSet<>(jdbcTemplate.query("SELECT idMunicipio from municipio",
+                    (rs, rowNum) -> rs.getString("idMunicipio")
+            ));
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                csvReader.readNext();
+
+                String[] linha;
+                int naoInseridos = 0;
+                while ((linha = csvReader.readNext()) != null) {
+                    if (linha.length >= 6 && linha[1] != null && linha[3] != null && linha[5] != null
+                            && !linha[1].isEmpty() && !linha[3].isEmpty() && !linha[5].isEmpty()
+                            && linha[3].length() >= 2) {
+
+                        try {
+
+                            if (idMunicipiosValidos.contains(linha[3])) {
+                                ps.setInt(1, Integer.parseInt(linha[3].substring(0, 2)));
+                                ps.setInt(2, Integer.parseInt(linha[3]));
+                                ps.setString(3, linha[1]);
+                                ps.setDouble(4, Double.parseDouble(linha[5]));
+                                ps.addBatch();
+
+                                if (++count % 5000 == 0) {
+                                    int[] batchResult = ps.executeBatch();
+                                    conn.commit();
+                                    ps.clearBatch();
+                                    totalInserido += Arrays.stream(batchResult).sum();
+                                    logger.info("Inseridos {} registros (lote de 5000)", totalInserido);
+                                }
+                            } else{
+                                logger.warn("Valor não inserido pois o idMunicipio {} não está presente no banco.", linha[3]);
+                                naoInseridos += 1;
+                            }
+                        } catch (NumberFormatException e) {
+                            logger.warn("Formato inválido na linha: " + String.join(",", linha), e);
+                        }
+                    }
+                }
+
+                int[] finalBatch = ps.executeBatch();
+                conn.commit();
+                totalInserido += Arrays.stream(finalBatch).sum();
+
+                auditoria.auditoriaUpdateProcessamento(objectKey, LocalDate.now(), totalInserido, "Concluído");
+                logger.info("Processamento concluído. \nTotal de registros inseridos: {}\nRegistros não inseridos: {}", totalInserido, naoInseridos);
+
+            } catch (Exception e) {
+                auditoria.auditoriaUpdateProcessamento(objectKey, LocalDate.now(), totalInserido, "Erro");
+                logger.error("Erro ao processar o arquivo: " + objectKey, e);
+            }
+        } catch (Exception e) {
+            logger.error("Erro ao processar o arquivo: " + objectKey, e);
+            auditoria.auditoriaUpdateProcessamento(objectKey, LocalDate.now(), totalInserido, "Erro");
+            throw new IOException("Falha ao processar o arquivo " + objectKey, e);
+        }
+    }
+
+    private InputStream getS3Object(S3Client s3Client, String objectKey) {
+        return s3Client.getObject(GetObjectRequest.builder()
+                .bucket(bucket)
+                .key(objectKey)
+                .build());
+    }
 }

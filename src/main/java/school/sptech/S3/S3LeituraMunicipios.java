@@ -210,6 +210,7 @@ public class S3LeituraMunicipios {
                                     (int) row.getCell(5).getNumericCellValue(),  // posicaoIDHM_educacao
                                     row.getCell(6).getNumericCellValue());   // idhmEducacao
                             // auditoria
+                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Sucesso", key, i);
                             logger.info("Inserido município: {} com ID: {} e UF: {}", municipioNomeCompleto, municipioId, ufCode);
                             inseridos++;
                         } else {

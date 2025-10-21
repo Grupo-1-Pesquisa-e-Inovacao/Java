@@ -1,5 +1,6 @@
 package school.sptech;
 import school.sptech.JDBC.ConexaoBanco;
+import school.sptech.S3.S3LeituraEnem;
 import school.sptech.S3.S3LeituraEstados;
 import school.sptech.S3.S3LeituraMunicipios;
 
@@ -15,5 +16,7 @@ public class Main {
 
         S3LeituraMunicipios s3LeituraMunicipios = new S3LeituraMunicipios(conexao.getJdbcTemplate());
         s3LeituraMunicipios.processarArquivos();
+        S3LeituraEnem s3LeituraEnem = new S3LeituraEnem(conexao.getJdbcTemplate());
+        s3LeituraEnem.leituraArquivos();
     }
 }

@@ -11,9 +11,9 @@ public class ConexaoBanco {
     public ConexaoBanco() {
         BasicDataSource basicDataSource = new BasicDataSource();
         basicDataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
-        basicDataSource.setUrl("jdbc:mysql://localhost:3306/GeoEduca?useSSL=false&serverTimezone=UTC");
-        basicDataSource.setUsername("root");
-        basicDataSource.setPassword("urubu100");
+        basicDataSource.setUrl("jdbc:mysql://localhost:3306/databaseName?useSSL=false&serverTimezone=UTC");
+        basicDataSource.setUsername("user");
+        basicDataSource.setPassword("password");
         
         this.basicDataSource = basicDataSource;
         this.jdbcTemplate = new JdbcTemplate(basicDataSource);
