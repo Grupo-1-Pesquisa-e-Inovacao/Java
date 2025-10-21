@@ -76,7 +76,6 @@ public class S3LeituraEstados {
         Map<String, String> idUf = new HashMap<>();
         try (InputStream inputStream = getS3Object(s3Client, keyRelatorio);
              Workbook workbook = new XSSFWorkbook(inputStream)) {
-
             Sheet sheet = workbook.getSheetAt(0);
             for (int i = 7; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
@@ -129,7 +128,7 @@ public class S3LeituraEstados {
                             auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i);
                         }
                     } else{
-                        logger.warn("ID já existe no banco de dados: {}", estadoId);
+                        logger.warn("ID já existe no banco de dados : {}", estadoId);
                     }
                 } catch (Exception e) {
                     auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i);
