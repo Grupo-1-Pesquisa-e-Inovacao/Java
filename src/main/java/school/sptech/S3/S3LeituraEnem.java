@@ -1,9 +1,9 @@
 package school.sptech.S3;
 
-import com.opencsv.CSVReader;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import school.sptech.Auditoria;
 import school.sptech.JDBC.ConexaoBanco;
@@ -16,12 +16,10 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.time.LocalDate;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class S3LeituraEnem {
     private final JdbcTemplate jdbcTemplate;
@@ -70,46 +68,56 @@ public class S3LeituraEnem {
         int totalInserido = 0;
 
         try (InputStream inputStream = getS3Object(s3Client, objectKey);
-             InputStreamReader isr = new InputStreamReader(inputStream);
-             CSVReader csvReader = new CSVReader(isr);
+             Workbook workbook = new XSSFWorkbook(inputStream);
              Connection conn = new ConexaoBanco().getBasicDataSource().getConnection()) {
+            
             conn.setAutoCommit(false);
             String sql = "INSERT INTO media_aluno_enem (idEstado, idMunicipio, inscricao_enem, nota_candidato) VALUES (?, ?, ?, ?)";
             Set<String> idMunicipiosValidos = new HashSet<>(jdbcTemplate.query("SELECT idMunicipio from municipio",
                     (rs, rowNum) -> rs.getString("idMunicipio")
             ));
+
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                csvReader.readNext();
-
-                String[] linha;
+                Sheet sheet = workbook.getSheetAt(0);
+                Iterator<Row> rowIterator = sheet.iterator();
+                if (rowIterator.hasNext()) {
+                    rowIterator.next();
+                }
+                
                 int naoInseridos = 0;
-                while ((linha = csvReader.readNext()) != null) {
-                    if (linha.length >= 6 && linha[1] != null && linha[3] != null && linha[5] != null
-                            && !linha[1].isEmpty() && !linha[3].isEmpty() && !linha[5].isEmpty()
-                            && linha[3].length() >= 2) {
-
-                        try {
-
-                            if (idMunicipiosValidos.contains(linha[3])) {
-                                ps.setInt(1, Integer.parseInt(linha[3].substring(0, 2)));
-                                ps.setInt(2, Integer.parseInt(linha[3]));
-                                ps.setString(3, linha[1]);
-                                ps.setDouble(4, Double.parseDouble(linha[5]));
-                                ps.addBatch();
-
-                                if (++count % 5000 == 0) {
-                                    int[] batchResult = ps.executeBatch();
-                                    conn.commit();
-                                    ps.clearBatch();
-                                    totalInserido += Arrays.stream(batchResult).sum();
-                                    logger.info("Inseridos {} registros (lote de 5000)", totalInserido);
+                while (rowIterator.hasNext()) {
+                    LocalDate dataAcao = LocalDate.now();
+                    Row row = rowIterator.next();
+                    Cell cell = row.getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
+                    
+                    if (cell != null) {
+                        String[] linha = cell.getStringCellValue().split(",");
+                        if (linha.length >= 6 && linha[1] != null && linha[3] != null && linha[5] != null
+                                && !linha[1].isEmpty() && !linha[3].isEmpty() && !linha[5].isEmpty()
+                                && linha[3].length() >= 2) {
+                            try {
+                                if (idMunicipiosValidos.contains(linha[3])) {
+                                    ps.setInt(1, Integer.parseInt(linha[3].substring(0, 2)));
+                                    ps.setInt(2, Integer.parseInt(linha[3]));
+                                    ps.setString(3, linha[1]);
+                                    ps.setDouble(4, Double.parseDouble(linha[5]));
+                                    ps.addBatch();
+                                    if (++count % 20000 == 0) {
+                                        int[] batchResult = ps.executeBatch();
+                                        conn.commit();
+                                        ps.clearBatch();
+                                        totalInserido += Arrays.stream(batchResult).sum();
+                                        logger.info("Inseridos {} registros (lote de 20000)", totalInserido);
+                                    }
+                                } else {
+                                    auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", objectKey, row.getRowNum());
+                                    logger.warn("Valor não inserido pois o idMunicipio {} não está presente no banco.", linha[3]);
+                                    naoInseridos += 1;
                                 }
-                            } else{
-                                logger.warn("Valor não inserido pois o idMunicipio {} não está presente no banco.", linha[3]);
-                                naoInseridos += 1;
+                            } catch (NumberFormatException e) {
+                                auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", objectKey, row.getRowNum());
+                                logger.warn("Formato inválido na linha: " + String.join(",", linha), e);
                             }
-                        } catch (NumberFormatException e) {
-                            logger.warn("Formato inválido na linha: " + String.join(",", linha), e);
                         }
                     }
                 }
