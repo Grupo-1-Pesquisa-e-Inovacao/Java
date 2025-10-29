@@ -61,6 +61,8 @@ public class S3LeituraEnem {
     }
 
     public void processarArquivo(S3Client s3Client, String objectKey) throws IOException {
+
+        logger.info("--------------------- INICIO PROCESSAMENTO ENEM ---------------------");
         logger.info("Processando arquivo: {}", objectKey);
         auditoria.auditoriaInsertProcessamento(objectKey, LocalDate.now(), 0, "Processando");
 
@@ -128,6 +130,8 @@ public class S3LeituraEnem {
 
                 auditoria.auditoriaUpdateProcessamento(objectKey, LocalDate.now(), totalInserido, "Concluído");
                 logger.info("Processamento concluído. \nTotal de registros inseridos: {}\nRegistros não inseridos: {}", totalInserido, naoInseridos);
+
+                logger.info("--------------------- FIM PROCESSAMENTO ENEM ---------------------");
 
             } catch (Exception e) {
                 auditoria.auditoriaUpdateProcessamento(objectKey, LocalDate.now(), totalInserido, "Erro");

@@ -39,13 +39,11 @@ public class S3LeituraEstados {
                 .credentialsProvider(ProfileCredentialsProvider.create())
                 .build()) {
 
+            logger.info("--------------------- INICIO PROCESSAMENTO ESTADOS ---------------------");
             List<String> estados = processarArquivoEstados(s3Client);
-            logger.info("Processou estado");
             Map<String, String> idUf = processarArquivoRelatorio(s3Client, estados);
-            logger.info("Processou relatório");
             inserirDadosNoBanco(s3Client, idUf);
-            logger.info("Processou no banco");
-            logger.info("--------------------- FIM PROCESSAMENTO ---------------------");
+            logger.info("--------------------- FIM PROCESSAMENTO ESTADOS ---------------------");
 
         } catch (S3Exception e) {
             logger.error("Erro ao acessar o S3: {}", e.getMessage(), e);
