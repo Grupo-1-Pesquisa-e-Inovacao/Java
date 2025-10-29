@@ -16,7 +16,7 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 
 public class S3LeituraEstados {
@@ -94,7 +94,7 @@ public class S3LeituraEstados {
 
             Sheet sheet = workbook.getSheetAt(0);
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-                LocalDate dataAcao = LocalDate.now();
+                LocalDateTime dataAcao = LocalDateTime.now();
                 Row row = sheet.getRow(i);
                 if (row == null) continue;
 
