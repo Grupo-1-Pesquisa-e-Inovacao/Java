@@ -4,7 +4,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.LocalDateTime;
 
-import java.time.LocalDateTime;
 
 public class Auditoria {
     private final JdbcTemplate jdbcTemplate;
