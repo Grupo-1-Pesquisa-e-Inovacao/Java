@@ -17,7 +17,7 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -90,15 +90,14 @@ public class S3LeituraMunicipios {
                 .credentialsProvider(ProfileCredentialsProvider.create())
                 .build()) {
 
+
+            logger.info("--------------------- INICIO PROCESSAMENTO MUNICIPIOS ---------------------");
             Map<String, String> municipiosComUf = processarArquivoMunicipio(s3Client);
             logger.info("IDHM: {} municípios carregados", municipiosComUf.size());
             Map<String, String> idMunicipio = processarArquivoRelatorio(s3Client, municipiosComUf);
-            logger.info("Processou relatório IdMunicipio: " + idMunicipio.size());
             Map<String, String> idUf = processarArquivoRelatorioIdUf(s3Client, municipiosComUf);
-            logger.info("Processou relatório IdUf: " + idUf.size());
             inserirDadosNoBanco(s3Client, idMunicipio, idUf, municipiosComUf);
-            logger.info("Processou no banco");
-            logger.info("--------------------- FIM PROCESSAMENTO ---------------------");
+            logger.info("--------------------- FIM PROCESSAMENTO MUNICIPIOS ---------------------");
 
         } catch (S3Exception e) {
             logger.error("Erro ao acessar o S3: {}", e.getMessage(), e);
@@ -185,7 +184,7 @@ public class S3LeituraMunicipios {
             int erros = 0;
 
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-                LocalDate dataAcao = LocalDate.now();
+                LocalDateTime dataAcao = LocalDateTime.now();
                 Row row = sheet.getRow(i);
                 if (row == null) continue;
 
