@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 
 public class S3LeituraEnem {
@@ -61,8 +62,10 @@ public class S3LeituraEnem {
     }
 
     public void processarArquivo(S3Client s3Client, String objectKey) throws IOException {
+
+        logger.info("--------------------- INICIO PROCESSAMENTO ENEM ---------------------");
         logger.info("Processando arquivo: {}", objectKey);
-        auditoria.auditoriaInsertProcessamento(objectKey, LocalDate.now(), 0, "Processando");
+        auditoria.auditoriaInsertProcessamento(objectKey, LocalDateTime.now(), 0, "Processando");
 
         int count = 0;
         int totalInserido = 0;
@@ -86,7 +89,7 @@ public class S3LeituraEnem {
                 
                 int naoInseridos = 0;
                 while (rowIterator.hasNext()) {
-                    LocalDate dataAcao = LocalDate.now();
+                    LocalDateTime dataAcao = LocalDateTime.now();
                     Row row = rowIterator.next();
                     Cell cell = row.getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
                     
@@ -123,19 +126,22 @@ public class S3LeituraEnem {
                 }
 
                 int[] finalBatch = ps.executeBatch();
+                logger.info("Inseridos {} registros (lote final)", finalBatch.length);
                 conn.commit();
                 totalInserido += Arrays.stream(finalBatch).sum();
 
-                auditoria.auditoriaUpdateProcessamento(objectKey, LocalDate.now(), totalInserido, "Concluído");
+                auditoria.auditoriaUpdateProcessamento(objectKey, LocalDateTime.now(), totalInserido, "Concluído");
                 logger.info("Processamento concluído. \nTotal de registros inseridos: {}\nRegistros não inseridos: {}", totalInserido, naoInseridos);
 
+                logger.info("--------------------- FIM PROCESSAMENTO ENEM ---------------------");
+
             } catch (Exception e) {
-                auditoria.auditoriaUpdateProcessamento(objectKey, LocalDate.now(), totalInserido, "Erro");
+                auditoria.auditoriaUpdateProcessamento(objectKey, LocalDateTime.now(), totalInserido, "Erro");
                 logger.error("Erro ao processar o arquivo: " + objectKey, e);
             }
         } catch (Exception e) {
             logger.error("Erro ao processar o arquivo: " + objectKey, e);
-            auditoria.auditoriaUpdateProcessamento(objectKey, LocalDate.now(), totalInserido, "Erro");
+            auditoria.auditoriaUpdateProcessamento(objectKey, LocalDateTime.now(), totalInserido, "Erro");
             throw new IOException("Falha ao processar o arquivo " + objectKey, e);
         }
     }
