@@ -11,6 +11,7 @@ public class ConexaoBanco {
     public ConexaoBanco() {
         BasicDataSource basicDataSource = new BasicDataSource();
         basicDataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        System.out.println("CONECTANDO EM NO CONTAINER - banco_de_dados");
         basicDataSource.setUrl("jdbc:mysql://banco_de_dados:3306/GeoEduca?useSSL=false&serverTimezone=UTC");
         basicDataSource.setUsername("root");
         basicDataSource.setPassword("urubu100");
