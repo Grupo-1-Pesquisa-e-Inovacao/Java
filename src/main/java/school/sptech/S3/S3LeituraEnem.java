@@ -5,12 +5,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
-import school.sptech.Auditoria;
 import school.sptech.JDBC.ConexaoBanco;
-import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
@@ -18,29 +14,22 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
-public class S3LeituraEnem {
+public class S3LeituraEnem extends AbstractS3Leitor {
     private final JdbcTemplate jdbcTemplate;
 
     public S3LeituraEnem(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    ConexaoBanco conexao = new ConexaoBanco();
     private static final Logger logger = LoggerFactory.getLogger(S3LeituraEnem.class);
     private final String bucket = "s3-java-excel";
     private final String pasta = "planilhas_enem/";
-    private final Region region = Region.US_EAST_1;
-    private final Auditoria auditoria = new Auditoria(conexao.getJdbcTemplate());
 
     public void leituraArquivos() {
-        try (S3Client s3Client = S3Client.builder()
-                .region(region)
-                .credentialsProvider(ProfileCredentialsProvider.create())
-                .build()) {
+        try (S3Client s3Client = createS3Client()) {
             ListObjectsRequest listObjects = ListObjectsRequest.builder()
                     .bucket(bucket)
                     .build();
@@ -144,12 +133,5 @@ public class S3LeituraEnem {
             auditoria.auditoriaUpdateProcessamento(objectKey, LocalDateTime.now(), totalInserido, "Erro");
             throw new IOException("Falha ao processar o arquivo " + objectKey, e);
         }
-    }
-
-    private InputStream getS3Object(S3Client s3Client, String objectKey) {
-        return s3Client.getObject(GetObjectRequest.builder()
-                .bucket(bucket)
-                .key(objectKey)
-                .build());
     }
 }
