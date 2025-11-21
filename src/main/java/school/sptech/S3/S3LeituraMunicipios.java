@@ -169,6 +169,7 @@ public class S3LeituraMunicipios extends AbstractS3Leitor {
             Sheet sheet = workbook.getSheetAt(0);
             int inseridos = 0;
             int erros = 0;
+            String mensagem = "";
 
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 LocalDateTime dataAcao = LocalDateTime.now();
@@ -196,20 +197,25 @@ public class S3LeituraMunicipios extends AbstractS3Leitor {
                                     (int) row.getCell(5).getNumericCellValue(),  // posicaoIDHM_educacao
                                     row.getCell(6).getNumericCellValue());   // idhmEducacao
                             // auditoria
-                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Sucesso", key, i);
+                            mensagem = String.format("Inserido município: %s com ID: %s e UF: %s", municipioNomeCompleto, municipioId, ufCode);
+                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Sucesso", key, i, mensagem);
                             logger.info("Inserido município: {} com ID: {} e UF: {}", municipioNomeCompleto, municipioId, ufCode);
                             inseridos++;
                         } else {
                             erros++;
-                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i);
-                            logger.warn("ID ou UF não encontrado para o município: {} (Chave: {}, ID: {}, UF: {})", municipioNomeCompleto, chave, municipioId, ufCode);
+                            mensagem = String.format("ID ou UF não encontrado para o município: %s (Chave: %s, ID: %s, UF: %s)", municipioNomeCompleto, chave, municipioId);
+                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i, mensagem);
+                            logger.warn("ID ou UF não encontrado para o município: {} (Chave: {}, ID: {})", municipioNomeCompleto, chave, municipioId);
                         }
                     } else{
+                        mensagem = String.format("ID já existe no banco de dados: %s", municipioId);
                         logger.warn("ID já existe no banco de dados: {}", municipioId);
+                        auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i, mensagem);
                     }
                 } catch (Exception e) {
                     erros++;
-                    auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i);
+                    mensagem = String.format("Erro ao inserir linha %d: %s", i, e.getMessage());
+                    auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i, mensagem);
                     logger.error("Erro ao inserir linha {}: {}", i, e.getMessage(), e);
                 }
             }

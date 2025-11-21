@@ -54,7 +54,7 @@ public class S3LeituraEnem extends AbstractS3Leitor {
 
         logger.info("--------------------- INICIO PROCESSAMENTO ENEM ---------------------");
         logger.info("Processando arquivo: {}", objectKey);
-        auditoria.auditoriaInsertProcessamento(objectKey, LocalDateTime.now(), 0, "Processando");
+        auditoria.auditoriaInsertProcessamento(objectKey, LocalDateTime.now(), 0, 0,  "Processando" );
 
         int count = 0;
         int totalInserido = 0;
@@ -62,7 +62,9 @@ public class S3LeituraEnem extends AbstractS3Leitor {
         try (InputStream inputStream = getS3Object(s3Client, objectKey);
              Workbook workbook = new XSSFWorkbook(inputStream);
              Connection conn = new ConexaoBanco().getBasicDataSource().getConnection()) {
-            
+             String mensagem = "";
+            int naoInseridos = 0;
+
             conn.setAutoCommit(false);
             String sql = "INSERT INTO media_aluno_enem (idEstado, idMunicipio, inscricao_enem, nota_candidato) VALUES (?, ?, ?, ?)";
             Set<String> idMunicipiosValidos = new HashSet<>(jdbcTemplate.query("SELECT idMunicipio from municipio",
@@ -75,8 +77,7 @@ public class S3LeituraEnem extends AbstractS3Leitor {
                 if (rowIterator.hasNext()) {
                     rowIterator.next();
                 }
-                
-                int naoInseridos = 0;
+
                 while (rowIterator.hasNext()) {
                     LocalDateTime dataAcao = LocalDateTime.now();
                     Row row = rowIterator.next();
@@ -102,12 +103,14 @@ public class S3LeituraEnem extends AbstractS3Leitor {
                                         logger.info("Inseridos {} registros (lote de 20000)", totalInserido);
                                     }
                                 } else {
-                                    auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", objectKey, row.getRowNum());
+                                    mensagem = String.format("Valor não inserido pois o idMunicipio %s não está presente no banco.", linha[3]);
+                                    auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", objectKey, row.getRowNum(), mensagem);
                                     logger.warn("Valor não inserido pois o idMunicipio {} não está presente no banco.", linha[3]);
                                     naoInseridos += 1;
                                 }
                             } catch (NumberFormatException e) {
-                                auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", objectKey, row.getRowNum());
+                                mensagem = String.format("Formato inválido na linha: %s", String.join(",", linha));
+                                auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", objectKey, row.getRowNum(), mensagem);
                                 logger.warn("Formato inválido na linha: " + String.join(",", linha), e);
                             }
                         }
@@ -119,18 +122,18 @@ public class S3LeituraEnem extends AbstractS3Leitor {
                 conn.commit();
                 totalInserido += Arrays.stream(finalBatch).sum();
 
-                auditoria.auditoriaUpdateProcessamento(objectKey, LocalDateTime.now(), totalInserido, "Concluído");
+                auditoria.auditoriaUpdateProcessamento(objectKey, LocalDateTime.now(), naoInseridos, totalInserido, "Concluído");
                 logger.info("Processamento concluído. \nTotal de registros inseridos: {}\nRegistros não inseridos: {}", totalInserido, naoInseridos);
 
                 logger.info("--------------------- FIM PROCESSAMENTO ENEM ---------------------");
 
             } catch (Exception e) {
-                auditoria.auditoriaUpdateProcessamento(objectKey, LocalDateTime.now(), totalInserido, "Erro");
+                auditoria.auditoriaUpdateProcessamento(objectKey, LocalDateTime.now(), naoInseridos, totalInserido, "Erro");
                 logger.error("Erro ao processar o arquivo: " + objectKey, e);
             }
         } catch (Exception e) {
             logger.error("Erro ao processar o arquivo: " + objectKey, e);
-            auditoria.auditoriaUpdateProcessamento(objectKey, LocalDateTime.now(), totalInserido, "Erro");
+            auditoria.auditoriaUpdateProcessamento(objectKey, LocalDateTime.now(), 0, totalInserido, "Erro");
             throw new IOException("Falha ao processar o arquivo " + objectKey, e);
         }
     }
