@@ -111,6 +111,7 @@ public class S3LeituraEnem extends AbstractS3Leitor {
                             } catch (NumberFormatException e) {
                                 mensagem = String.format("Formato inválido na linha: %s", String.join(",", linha));
                                 auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", objectKey, row.getRowNum(), mensagem);
+                                naoInseridos += 1;
                                 logger.warn("Formato inválido na linha: " + String.join(",", linha), e);
                             }
                         }
