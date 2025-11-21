@@ -203,7 +203,7 @@ public class S3LeituraMunicipios extends AbstractS3Leitor {
                             inseridos++;
                         } else {
                             erros++;
-                            mensagem = String.format("ID ou UF não encontrado para o município: %s (Chave: %s, ID: %s, UF: %s)", municipioNomeCompleto, chave, municipioId);
+                            mensagem = String.format("ID ou UF não encontrado para o município: %s (Chave: %s, ID: %s)", municipioNomeCompleto, chave, municipioId);
                             auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i, mensagem);
                             logger.warn("ID ou UF não encontrado para o município: {} (Chave: {}, ID: {})", municipioNomeCompleto, chave, municipioId);
                         }
