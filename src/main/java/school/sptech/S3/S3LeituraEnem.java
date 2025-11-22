@@ -58,12 +58,12 @@ public class S3LeituraEnem extends AbstractS3Leitor {
 
         int count = 0;
         int totalInserido = 0;
+        int naoInseridos = 0;
 
         try (InputStream inputStream = getS3Object(s3Client, objectKey);
              Workbook workbook = new XSSFWorkbook(inputStream);
              Connection conn = new ConexaoBanco().getBasicDataSource().getConnection()) {
              String mensagem = "";
-            int naoInseridos = 0;
 
             conn.setAutoCommit(false);
             String sql = "INSERT INTO media_aluno_enem (idEstado, idMunicipio, inscricao_enem, nota_candidato) VALUES (?, ?, ?, ?)";
