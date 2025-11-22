@@ -134,7 +134,7 @@ public class S3LeituraEnem extends AbstractS3Leitor {
             }
         } catch (Exception e) {
             logger.error("Erro ao processar o arquivo: " + objectKey, e);
-            auditoria.auditoriaUpdateProcessamento(objectKey, LocalDateTime.now(), 0, totalInserido, "Erro");
+            auditoria.auditoriaUpdateProcessamento(objectKey, LocalDateTime.now(), naoInseridos, totalInserido, "Erro");
             throw new IOException("Falha ao processar o arquivo " + objectKey, e);
         }
     }
