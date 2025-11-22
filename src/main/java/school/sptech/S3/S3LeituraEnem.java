@@ -54,7 +54,7 @@ public class S3LeituraEnem extends AbstractS3Leitor {
 
         logger.info("--------------------- INICIO PROCESSAMENTO ENEM ---------------------");
         logger.info("Processando arquivo: {}", objectKey);
-        auditoria.auditoriaInsertProcessamento(objectKey, LocalDateTime.now(), 0, 0,  "Processando" );
+        auditoria.auditoriaInsertProcessamento(objectKey, LocalDateTime.now(), 0, 0,  "Processando");
 
         int count = 0;
         int totalInserido = 0;
