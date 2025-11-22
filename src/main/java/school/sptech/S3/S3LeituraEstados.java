@@ -87,7 +87,7 @@ public class S3LeituraEstados extends AbstractS3Leitor {
                 LocalDateTime dataAcao = LocalDateTime.now();
                 Row row = sheet.getRow(i);
                 if (row == null) continue;
-
+                String mensagem = "";
                 try {
                     String estadoNome = row.getCell(0).getStringCellValue();
                     String estadoId = null;
@@ -109,17 +109,22 @@ public class S3LeituraEstados extends AbstractS3Leitor {
                                     row.getCell(5).getNumericCellValue(),
                                     row.getCell(6).getNumericCellValue()
                             );
-                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Sucesso", key, i);
+                            mensagem = String.format("Inserido estado: %s com ID: %s", estadoNome, estadoId);
+                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Sucesso", key, i, mensagem);
                             logger.info("Inserido estado: {} com ID: {}", estadoNome, estadoId);
                         } else {
+                            mensagem = String.format("ID não encontrado para o estado: %s", estadoNome);
                             logger.warn("ID não encontrado para o estado: {}", estadoNome);
-                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i);
+                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i, mensagem);
                         }
                     } else{
-                        logger.warn("ID já existe no banco de dados : {}", estadoId);
+                        mensagem = String.format("ID já existe no banco de dados: %s", estadoId);
+                        logger.warn("ID já existe no banco de dados: {}", estadoId);
+                        auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i, mensagem);
                     }
                 } catch (Exception e) {
-                    auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i);
+                    mensagem = String.format("Erro ao inserir linha %d: %s", i, e.getMessage());
+                    auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i, mensagem);
                     logger.error("Erro ao inserir linha {}: {}", i, e.getMessage(), e);
                 }
             }
