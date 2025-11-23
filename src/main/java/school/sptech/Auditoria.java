@@ -16,12 +16,12 @@ public class Auditoria {
     }
 
 
-    public void auditoriaInsertProcessamento(String nome_arquivo, LocalDateTime data_acao, Integer total_linhas, Integer linhas_processadas, String status) {
-        jdbcTemplate.update("INSERT INTO processamento_planilha (nome_arquivo, data_processamento, total_linhas, linhas_processadas, status) VALUES (?, ?, ?, ?, ?)", nome_arquivo, data_acao, total_linhas, linhas_processadas, status);
+    public void auditoriaInsertProcessamento(String nome_arquivo, LocalDateTime data_acao, Integer linhas_nao_inseridas, Integer linhas_processadas, String status) {
+        jdbcTemplate.update("INSERT INTO processamento_planilha (nome_arquivo, data_processamento, linhas_nao_inseridas, linhas_processadas, status) VALUES (?, ?, ?, ?, ?)", nome_arquivo, data_acao, linhas_nao_inseridas, linhas_processadas, status);
     }
 
 
-    public void auditoriaUpdateProcessamento(String nome_arquivo, LocalDateTime data_acao, Integer total_linhas, Integer linhas_processadas, String status) {
-        jdbcTemplate.update("UPDATE processamento_planilha SET data_processamento = ?, total_linhas = ?, linhas_processadas = ?, status = ? WHERE nome_arquivo = ?", data_acao, total_linhas, linhas_processadas, status, nome_arquivo);
+    public void auditoriaUpdateProcessamento(String nome_arquivo, LocalDateTime data_acao, Integer linhas_nao_inseridas, Integer linhas_processadas, String status) {
+        jdbcTemplate.update("UPDATE processamento_planilha SET data_processamento = ?, linhas_nao_inseridas = ?, linhas_processadas = ?, status = ? WHERE nome_arquivo = ?", data_acao, linhas_nao_inseridas, linhas_processadas, status, nome_arquivo);
     }
 }
