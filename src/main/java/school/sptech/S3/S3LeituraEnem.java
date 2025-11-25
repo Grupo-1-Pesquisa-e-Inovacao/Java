@@ -66,7 +66,7 @@ public class S3LeituraEnem extends AbstractS3Leitor {
              String mensagem = "";
 
             conn.setAutoCommit(false);
-            String sql = "INSERT INTO media_aluno_enem (idEstado, idMunicipio, inscricao_enem, nota_candidato) VALUES (?, ?, ?, ?)";
+            String sql = "INSERT INTO media_aluno_enem (ano, idEstado, idMunicipio, inscricao_enem, nota_candidato) VALUES (?, ?, ?, ?, ?)";
             Set<String> idMunicipiosValidos = new HashSet<>(jdbcTemplate.query("SELECT idMunicipio from municipio",
                     (rs, rowNum) -> rs.getString("idMunicipio")
             ));
@@ -90,10 +90,11 @@ public class S3LeituraEnem extends AbstractS3Leitor {
                                 && linha[3].length() >= 2) {
                             try {
                                 if (idMunicipiosValidos.contains(linha[3])) {
-                                    ps.setInt(1, Integer.parseInt(linha[3].substring(0, 2)));
-                                    ps.setInt(2, Integer.parseInt(linha[3]));
-                                    ps.setString(3, linha[1]);
-                                    ps.setDouble(4, Double.parseDouble(linha[5]));
+                                    ps.setInt(1, Integer.parseInt(linha[0]));
+                                    ps.setInt(2, Integer.parseInt(linha[3].substring(0, 2)));
+                                    ps.setInt(3, Integer.parseInt(linha[3]));
+                                    ps.setString(4, linha[1]);
+                                    ps.setDouble(5, Double.parseDouble(linha[5]));
                                     ps.addBatch();
                                     if (++count % 20000 == 0) {
                                         int[] batchResult = ps.executeBatch();
