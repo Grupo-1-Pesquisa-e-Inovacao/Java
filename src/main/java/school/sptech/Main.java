@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 import java.util.Random;
 import java.util.Scanner;
 public class Main {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException{
         ConexaoBanco conexao = new ConexaoBanco();
         S3LeituraEstados s3LeituraEstados = new S3LeituraEstados(conexao.getJdbcTemplate());
         s3LeituraEstados.processarArquivos();

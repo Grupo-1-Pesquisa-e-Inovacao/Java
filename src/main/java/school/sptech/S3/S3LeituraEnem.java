@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import school.sptech.JDBC.ConexaoBanco;
+import school.sptech.Slack.Slack;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -27,8 +28,9 @@ public class S3LeituraEnem extends AbstractS3Leitor {
     private static final Logger logger = LoggerFactory.getLogger(S3LeituraEnem.class);
     private final String bucket = "s3-java-excel";
     private final String pasta = "planilhas_enem/";
+    private Slack slack;
 
-    public void leituraArquivos() {
+    public void leituraArquivos() throws InterruptedException{
         try (S3Client s3Client = createS3Client()) {
             ListObjectsRequest listObjects = ListObjectsRequest.builder()
                     .bucket(bucket)
@@ -50,12 +52,12 @@ public class S3LeituraEnem extends AbstractS3Leitor {
         }
     }
 
-    public void processarArquivo(S3Client s3Client, String objectKey) throws IOException {
+    public void processarArquivo(S3Client s3Client, String objectKey) throws IOException, InterruptedException {
 
         logger.info("--------------------- INICIO PROCESSAMENTO ENEM ---------------------");
         logger.info("Processando arquivo: {}", objectKey);
         auditoria.auditoriaInsertProcessamento(objectKey, LocalDateTime.now(), 0, 0,  "Processando");
-
+        slack.enviarNotificacao("Processando arquivo: " + objectKey, "dados-enem");
         int count = 0;
         int totalInserido = 0;
         int naoInseridos = 0;
@@ -126,6 +128,7 @@ public class S3LeituraEnem extends AbstractS3Leitor {
 
                 auditoria.auditoriaUpdateProcessamento(objectKey, LocalDateTime.now(), naoInseridos, totalInserido, "Concluído");
                 logger.info("Processamento concluído. \nTotal de registros inseridos: {}\nRegistros não inseridos: {}", totalInserido, naoInseridos);
+                slack.enviarNotificacao("Arquivo concluído: " + objectKey, "dados-enem");
 
                 logger.info("--------------------- FIM PROCESSAMENTO ENEM ---------------------");
 
