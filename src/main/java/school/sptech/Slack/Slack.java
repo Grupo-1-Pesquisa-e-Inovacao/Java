@@ -20,7 +20,7 @@ public class Slack {
     }
 
     public List<SlackEventos> getListaSlacks() {
-        String sql = "SELECT * FROM slack_evento JOIN slack_config ON slack_evento.idSlackEvento = slack_config.fkIdSlackEvento";
+        String sql = "SELECT * FROM slack_evento JOIN slack_config ON slack_config.idSlackConfig = slack_evento.fkSlackConfig";
         return jdbcTemplate.query(sql, (rs, rowNum) -> {
             SlackEventos evento = new SlackEventos();
             evento.setIdSlackEvento(rs.getInt("idSlackEvento"));
@@ -36,7 +36,7 @@ public class Slack {
         for (SlackEventos listaSlack : getListaSlacks()) {
             if (listaSlack.getLigado()) {
                 JSONObject json = new JSONObject();
-                if (listaSlack.getNomeEvento().equals("nomeEvento")) {
+                if (listaSlack.getNomeEvento().equals(nomeEvento)) {
                     json.put("text", mensagem);
                     enviarMsg(json, listaSlack.getWebhook());
                 }
