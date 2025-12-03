@@ -31,7 +31,7 @@ public class S3LeituraEnem extends AbstractS3Leitor {
     }
 
     private static final Logger logger = LoggerFactory.getLogger(S3LeituraEnem.class);
-    private final String bucket = "s3-java-excel1";
+    private final String bucket = "s3-java-excel";
     private final String pasta = "planilhas_enem/";
     private Slack slack;
 

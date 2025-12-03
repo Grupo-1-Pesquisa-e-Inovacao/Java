@@ -34,9 +34,9 @@ public class Slack {
 
     public void enviarNotificacao(String mensagem, String nomeEvento) throws IOException, InterruptedException {
         for (SlackEventos listaSlack : getListaSlacks()) {
-            if (listaSlack.getLigado()) {
-                JSONObject json = new JSONObject();
-                if (listaSlack.getNomeEvento().equals(nomeEvento)) {
+            if (listaSlack.getNomeEvento().equals(nomeEvento)) {
+                if(listaSlack.getLigado()){
+                    JSONObject json = new JSONObject();
                     json.put("text", mensagem);
                     enviarMsg(json, listaSlack.getWebhook());
                 }
