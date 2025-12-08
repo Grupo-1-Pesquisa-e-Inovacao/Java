@@ -5,12 +5,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
-import school.sptech.Auditoria;
-import school.sptech.JDBC.ConexaoBanco;
-import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 
@@ -19,25 +14,20 @@ import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.*;
 
-public class S3LeituraEstados {
-    ConexaoBanco conexao = new ConexaoBanco();
+public class S3LeituraEstados extends AbstractS3Leitor {
+
     private static final Logger logger = LoggerFactory.getLogger(S3LeituraEstados.class);
-    private final String bucket = "s3-java-excel";
+
     private final String key = "IDHM_Estados.xlsx";
     private final String keyRelatorio = "RELATORIO_DTB_BRASIL_2024_MUNICIPIOS.xlsx";
-    private final Region region = Region.US_EAST_1;
     private final JdbcTemplate jdbcTemplate;
-    private final Auditoria auditoria = new Auditoria(conexao.getJdbcTemplate());
 
     public S3LeituraEstados(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
     public void processarArquivos() {
-        try (S3Client s3Client = S3Client.builder()
-                .region(region)
-                .credentialsProvider(ProfileCredentialsProvider.create())
-                .build()) {
+        try (S3Client s3Client = createS3Client()) {
 
             logger.info("--------------------- INICIO PROCESSAMENTO ESTADOS ---------------------");
             List<String> estados = processarArquivoEstados(s3Client);
@@ -97,7 +87,7 @@ public class S3LeituraEstados {
                 LocalDateTime dataAcao = LocalDateTime.now();
                 Row row = sheet.getRow(i);
                 if (row == null) continue;
-
+                String mensagem = "";
                 try {
                     String estadoNome = row.getCell(0).getStringCellValue();
                     String estadoId = null;
@@ -119,28 +109,27 @@ public class S3LeituraEstados {
                                     row.getCell(5).getNumericCellValue(),
                                     row.getCell(6).getNumericCellValue()
                             );
-                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Sucesso", key, i);
+                            mensagem = String.format("Inserido estado: %s com ID: %s", estadoNome, estadoId);
+                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Sucesso", key, i, mensagem);
                             logger.info("Inserido estado: {} com ID: {}", estadoNome, estadoId);
                         } else {
+                            mensagem = String.format("ID não encontrado para o estado: %s", estadoNome);
                             logger.warn("ID não encontrado para o estado: {}", estadoNome);
-                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i);
+                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i, mensagem);
                         }
                     } else{
-                        logger.warn("ID já existe no banco de dados : {}", estadoId);
+                        mensagem = String.format("ID já existe no banco de dados: %s", estadoId);
+                        logger.warn("ID já existe no banco de dados: {}", estadoId);
+                        auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i, mensagem);
                     }
                 } catch (Exception e) {
-                    auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i);
+                    mensagem = String.format("Erro ao inserir linha %d: %s", i, e.getMessage());
+                    auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i, mensagem);
                     logger.error("Erro ao inserir linha {}: {}", i, e.getMessage(), e);
                 }
             }
         }
     }
 
-    private InputStream getS3Object(S3Client s3Client, String objectKey) {
-        return s3Client.getObject(GetObjectRequest.builder()
-                .bucket(bucket)
-                .key(objectKey)
-                .build());
-    }
 }
 

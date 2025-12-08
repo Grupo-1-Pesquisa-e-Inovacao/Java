@@ -7,12 +7,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
-import school.sptech.Auditoria;
-import school.sptech.JDBC.ConexaoBanco;
-import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.IOException;
@@ -21,16 +16,12 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-public class S3LeituraMunicipios {
-
-    ConexaoBanco conexao = new ConexaoBanco();
+public class S3LeituraMunicipios extends AbstractS3Leitor {
     private static final Logger logger = LoggerFactory.getLogger(S3LeituraMunicipios.class);
+
     private final JdbcTemplate jdbcTemplate;
-    private final String bucket = "s3-java-excel";
     private final String key = "IDHM_Municipios.xlsx";
     private final String keyRelatorio = "RELATORIO_DTB_BRASIL_2024_MUNICIPIOS.xlsx";
-    private final Region region = Region.US_EAST_1;
-    private final Auditoria auditoria = new Auditoria(conexao.getJdbcTemplate());
 
     private static final Map<String, String> UF_NOME_TO_SIGLA = new HashMap<>() {{
         put("Rondônia", "RO");
@@ -85,11 +76,7 @@ public class S3LeituraMunicipios {
     }
 
     public void processarArquivos() {
-        try (S3Client s3Client = S3Client.builder()
-                .region(region)
-                .credentialsProvider(ProfileCredentialsProvider.create())
-                .build()) {
-
+        try (S3Client s3Client = createS3Client()) {
 
             logger.info("--------------------- INICIO PROCESSAMENTO MUNICIPIOS ---------------------");
             Map<String, String> municipiosComUf = processarArquivoMunicipio(s3Client);
@@ -182,6 +169,7 @@ public class S3LeituraMunicipios {
             Sheet sheet = workbook.getSheetAt(0);
             int inseridos = 0;
             int erros = 0;
+            String mensagem = "";
 
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 LocalDateTime dataAcao = LocalDateTime.now();
@@ -209,32 +197,30 @@ public class S3LeituraMunicipios {
                                     (int) row.getCell(5).getNumericCellValue(),  // posicaoIDHM_educacao
                                     row.getCell(6).getNumericCellValue());   // idhmEducacao
                             // auditoria
-                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Sucesso", key, i);
+                            mensagem = String.format("Inserido município: %s com ID: %s e UF: %s", municipioNomeCompleto, municipioId, ufCode);
+                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Sucesso", key, i, mensagem);
                             logger.info("Inserido município: {} com ID: {} e UF: {}", municipioNomeCompleto, municipioId, ufCode);
                             inseridos++;
                         } else {
                             erros++;
-                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i);
-                            logger.warn("ID ou UF não encontrado para o município: {} (Chave: {}, ID: {}, UF: {})", municipioNomeCompleto, chave, municipioId, ufCode);
+                            mensagem = String.format("ID ou UF não encontrado para o município: %s (Chave: %s, ID: %s)", municipioNomeCompleto, chave, municipioId);
+                            auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i, mensagem);
+                            logger.warn("ID ou UF não encontrado para o município: {} (Chave: {}, ID: {})", municipioNomeCompleto, chave, municipioId);
                         }
                     } else{
+                        mensagem = String.format("ID já existe no banco de dados: %s", municipioId);
                         logger.warn("ID já existe no banco de dados: {}", municipioId);
+                        auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i, mensagem);
                     }
                 } catch (Exception e) {
                     erros++;
-                    auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i);
+                    mensagem = String.format("Erro ao inserir linha %d: %s", i, e.getMessage());
+                    auditoria.auditoriaUpdate("INSERT", dataAcao, "Erro", key, i, mensagem);
                     logger.error("Erro ao inserir linha {}: {}", i, e.getMessage(), e);
                 }
             }
             logger.info("Resumo: {} inseridos, {} erros, Total processado: {}", inseridos, erros, inseridos + erros);
         }
-    }
-
-    private InputStream getS3Object(S3Client s3Client, String objectKey) {
-        return s3Client.getObject(GetObjectRequest.builder()
-                .bucket(bucket)
-                .key(objectKey)
-                .build());
     }
 }
 
