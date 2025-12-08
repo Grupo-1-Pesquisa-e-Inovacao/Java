@@ -11,7 +11,7 @@ import java.io.InputStream;
 
 public abstract class AbstractS3Leitor {
 
-    protected final String bucket = "s3-java-excel1";
+    protected final String bucket = "s3-java-excel";
     protected final Region region = Region.US_EAST_1;
 
     protected final ConexaoBanco conexao = new ConexaoBanco();
