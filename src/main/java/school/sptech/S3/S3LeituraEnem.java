@@ -62,8 +62,7 @@ public class S3LeituraEnem extends AbstractS3Leitor {
         logger.info("--------------------- INICIO PROCESSAMENTO ENEM ---------------------");
         logger.info("Processando arquivo: {}", objectKey);
         auditoria.auditoriaInsertProcessamento(objectKey, LocalDateTime.now(), 0, 0, "Processando");
-        
-        // Send processing started notification
+
         String processandoMsg = ":hourglass_flowing_sand: *Processando Arquivo*\n" +
                 "```" + objectKey + "```";
         slack.enviarNotificacao(processandoMsg, "dados-enem");
@@ -138,12 +137,10 @@ public class S3LeituraEnem extends AbstractS3Leitor {
                 logger.info("Total de linhas processadas: {}", totalInserido + naoInseridos);
                 logger.info("Total de linhas inseridas: {}", totalInserido);
                 logger.info("Total de linhas não inseridas: {}", naoInseridos);
-                
-                // Calculate processing statistics
+
                 int totalLinhas = totalInserido + naoInseridos;
                 double percentualSucesso = totalLinhas > 0 ? (double) totalInserido / totalLinhas * 100 : 0;
-                
-                // Create beautiful Slack message
+
                 String emoji = percentualSucesso >= 90 ? ":white_check_mark:" : ":warning:";
                 String status = percentualSucesso >= 90 ? "*SUCESSO*" : "*ATENÇÃO*";
                 
@@ -164,8 +161,7 @@ public class S3LeituraEnem extends AbstractS3Leitor {
                     totalInserido,
                     naoInseridos
                 );
-                
-                // Send completion notification
+
                 slack.enviarNotificacao(mensagemConclusao, "dados-enem");
 
                 auditoria.auditoriaUpdateProcessamento(objectKey, LocalDateTime.now(), naoInseridos, totalInserido, "Concluído");
