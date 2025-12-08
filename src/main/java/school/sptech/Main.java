@@ -4,13 +4,12 @@ import school.sptech.S3.S3LeituraEnem;
 import school.sptech.S3.S3LeituraEstados;
 import school.sptech.S3.S3LeituraMunicipios;
 import school.sptech.Slack.Slack;
+import school.sptech.Relatorios.RelatorioNotasService;
 
-import java.io.File;
-import java.time.LocalDateTime;
-import java.util.Random;
-import java.util.Scanner;
+import java.io.IOException;
+
 public class Main {
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, IOException {
         ConexaoBanco conexao = new ConexaoBanco();
         Slack slack = new Slack(conexao.getJdbcTemplate());
 
@@ -22,5 +21,8 @@ public class Main {
 
         S3LeituraEnem s3LeituraEnem = new S3LeituraEnem(conexao.getJdbcTemplate(), slack);
         s3LeituraEnem.leituraArquivos();
+
+        RelatorioNotasService relatorio = new RelatorioNotasService(conexao.getJdbcTemplate());
+        relatorio.exportarRelatorio();
     }
 }
