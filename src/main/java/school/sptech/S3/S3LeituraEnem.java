@@ -25,8 +25,13 @@ public class S3LeituraEnem extends AbstractS3Leitor {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    public S3LeituraEnem(JdbcTemplate jdbcTemplate, Slack slack) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.slack = slack;
+    }
+
     private static final Logger logger = LoggerFactory.getLogger(S3LeituraEnem.class);
-    private final String bucket = "s3-java-excel";
+    private final String bucket = "s3-java-excel1";
     private final String pasta = "planilhas_enem/";
     private Slack slack;
 
@@ -56,8 +61,11 @@ public class S3LeituraEnem extends AbstractS3Leitor {
 
         logger.info("--------------------- INICIO PROCESSAMENTO ENEM ---------------------");
         logger.info("Processando arquivo: {}", objectKey);
-        auditoria.auditoriaInsertProcessamento(objectKey, LocalDateTime.now(), 0, 0,  "Processando");
-        slack.enviarNotificacao("Processando arquivo: " + objectKey, "dados-enem");
+        auditoria.auditoriaInsertProcessamento(objectKey, LocalDateTime.now(), 0, 0, "Processando");
+
+        String processandoMsg = ":hourglass_flowing_sand: *Processando Arquivo*\n" +
+                "```" + objectKey + "```";
+        slack.enviarNotificacao(processandoMsg, "dados-enem");
         int count = 0;
         int totalInserido = 0;
         int naoInseridos = 0;
@@ -126,10 +134,37 @@ public class S3LeituraEnem extends AbstractS3Leitor {
                 conn.commit();
                 totalInserido += Arrays.stream(finalBatch).sum();
 
-                auditoria.auditoriaUpdateProcessamento(objectKey, LocalDateTime.now(), naoInseridos, totalInserido, "Concluído");
-                logger.info("Processamento concluído. \nTotal de registros inseridos: {}\nRegistros não inseridos: {}", totalInserido, naoInseridos);
-                slack.enviarNotificacao("Arquivo concluído: " + objectKey, "dados-enem");
+                logger.info("Total de linhas processadas: {}", totalInserido + naoInseridos);
+                logger.info("Total de linhas inseridas: {}", totalInserido);
+                logger.info("Total de linhas não inseridas: {}", naoInseridos);
 
+                int totalLinhas = totalInserido + naoInseridos;
+                double percentualSucesso = totalLinhas > 0 ? (double) totalInserido / totalLinhas * 100 : 0;
+
+                String emoji = percentualSucesso >= 90 ? ":white_check_mark:" : ":warning:";
+                String status = percentualSucesso >= 90 ? "*SUCESSO*" : "*ATENÇÃO*";
+                
+                String mensagemConclusao = String.format(
+                    "%s %s\n" +
+                    "*Arquivo Processado*\n" +
+                    "```%s```\n\n" +
+                    "*Status:* %s\n" +
+                    "*Precisão:* %.2f%%\n" +
+                    "*Total de Linhas:* %d\n" +
+                    "*Linhas Processadas com Sucesso:* %d\n" +
+                    "*Linhas com Erro:* %d",
+                    emoji, status,
+                    objectKey,
+                    status,
+                    percentualSucesso,
+                    totalLinhas,
+                    totalInserido,
+                    naoInseridos
+                );
+
+                slack.enviarNotificacao(mensagemConclusao, "dados-enem");
+
+                auditoria.auditoriaUpdateProcessamento(objectKey, LocalDateTime.now(), naoInseridos, totalInserido, "Concluído");
                 logger.info("--------------------- FIM PROCESSAMENTO ENEM ---------------------");
 
             } catch (Exception e) {
