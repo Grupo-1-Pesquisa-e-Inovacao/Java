@@ -30,7 +30,7 @@ class S3LeituraEnemTest {
 
     @DisplayName("Deve processar o arquivo do S3 quando ele ainda não existir no banco de dados")
     @Test
-    void deveProcessarArquivoNovoSemCredenciaisReais() throws IOException {
+    void deveProcessarArquivoNovoSemCredenciaisReais() throws IOException, InterruptedException {
         // cria mock do S3Client e do builder
         S3Client s3ClientMock = mock(S3Client.class);
         @SuppressWarnings("unchecked")
